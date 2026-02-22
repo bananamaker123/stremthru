@@ -54,7 +54,7 @@ func AddEndpoints(mux *http.ServeMux) {
 	}))
 	mux.HandleFunc("/v0/store/newz/stream/{token}/{filename}", shared.EnableCORS(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		case http.MethodGet:
+		case http.MethodGet, http.MethodHead:
 			handleStoreNewzStreamFile(w, r)
 		default:
 			server.ErrorMethodNotAllowed(r).Send(w, r)
