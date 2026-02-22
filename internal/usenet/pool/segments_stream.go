@@ -50,12 +50,13 @@ type SegmentsStream struct {
 }
 
 func NewSegmentsStream(
+	ctx context.Context,
 	pool *Pool,
 	segments []nzb.Segment,
 	groups []string,
 	bufferSize int64,
 ) *SegmentsStream {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 
 	workerCount := max(min(len(segments), config.Newz.MaxConnectionPerStream), 1)
 
@@ -89,6 +90,11 @@ func (s *SegmentsStream) startSegmentFetcher() {
 
 	segmentChan := make(chan segmentWithIdx, s.workerCount)
 	resultChan := make(chan segmentResult, s.workerCount*2)
+
+	go func() {
+		<-s.ctx.Done()
+		s.bufferCond.Broadcast()
+	}()
 
 	go s.startSegmentFetchDispatcher(segmentChan)
 

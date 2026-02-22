@@ -2,6 +2,7 @@ package usenet_pool
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -127,4 +128,16 @@ func IsArchiveFile(filename string) bool {
 	default:
 		return false
 	}
+}
+
+// GenerateRARVolumeName generates a RAR volume filename using new naming convention.
+// Volume 0: {base}.part01.rar, Volume 1: {base}.part02.rar, etc.
+func GenerateRARVolumeName(base string, volume int) string {
+	return fmt.Sprintf("%s.part%02d.rar", base, volume+1)
+}
+
+// Generate7zVolumeName generates a 7z volume filename.
+// Volume 0: {base}.7z.001, Volume 1: {base}.7z.002, etc.
+func Generate7zVolumeName(base string, volume int) string {
+	return fmt.Sprintf("%s.7z.%03d", base, volume+1)
 }

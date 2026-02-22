@@ -61,6 +61,7 @@ type FileStream struct {
 }
 
 func NewFileStream(
+	ctx context.Context,
 	pool *Pool,
 	file *nzb.File,
 	bufferSize int64,
@@ -68,8 +69,6 @@ func NewFileStream(
 	if bufferSize <= 0 {
 		bufferSize = config.Newz.StreamBufferSize
 	}
-
-	ctx := context.Background()
 
 	firstSegment, err := pool.fetchFirstSegment(ctx, file)
 	if err != nil {
@@ -208,7 +207,7 @@ func (s *FileStream) createSegmentsStream(startPos int64, bufferSize int64) (*Se
 	fileLog.Trace("create segments stream - start", "position", startPos)
 
 	if startPos == 0 {
-		return NewSegmentsStream(s.pool, s.file.Segments, s.file.Groups, bufferSize), nil
+		return NewSegmentsStream(s.ctx, s.pool, s.file.Segments, s.file.Groups, bufferSize), nil
 	}
 
 	result, err := s.interpolationSearch(startPos)
@@ -218,7 +217,7 @@ func (s *FileStream) createSegmentsStream(startPos int64, bufferSize int64) (*Se
 
 	fileLog.Trace("create segments stream - found segment", "segment_idx", result.SegmentIndex, "byte_range", fmt.Sprintf("[%d, %d)", result.ByteRange.Start, result.ByteRange.End))
 
-	stream := NewSegmentsStream(s.pool, s.file.Segments[result.SegmentIndex:], s.file.Groups, bufferSize)
+	stream := NewSegmentsStream(s.ctx, s.pool, s.file.Segments[result.SegmentIndex:], s.file.Groups, bufferSize)
 
 	skipBytes := startPos - result.ByteRange.Start
 	if skipBytes > 0 {

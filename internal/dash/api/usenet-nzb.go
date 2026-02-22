@@ -125,11 +125,13 @@ func handleParseNZB(w http.ResponseWriter, r *http.Request) {
 type NZBContentFileResponse struct {
 	Type       string                   `json:"type"`
 	Name       string                   `json:"name"`
+	Alias      string                   `json:"alias,omitempty"`
 	Size       int64                    `json:"size"`
 	Streamable bool                     `json:"streamable"`
 	Errors     []string                 `json:"errors,omitempty"`
 	Files      []NZBContentFileResponse `json:"files,omitempty"`
 	Parts      []NZBContentFileResponse `json:"parts,omitempty"`
+	Volume     int                      `json:"volume,omitempty"`
 }
 
 type NZBResponse struct {
@@ -152,9 +154,11 @@ func toNZBContentFileResponse(file usenet_pool.NZBContentFile) NZBContentFileRes
 	resp := NZBContentFileResponse{
 		Type:       string(file.Type),
 		Name:       file.Name,
+		Alias:      file.Alias,
 		Size:       file.Size,
 		Streamable: file.Streamable,
 		Errors:     file.Errors,
+		Volume:     file.Volume,
 	}
 	if len(file.Files) > 0 {
 		resp.Files = make([]NZBContentFileResponse, len(file.Files))
@@ -442,7 +446,8 @@ func handleStreamNZBFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	streamConfig := &usenet_pool.StreamConfig{
-		Password: info.Password,
+		Password:     info.Password,
+		ContentFiles: info.ContentFiles.Data,
 	}
 	stream, err := pool.StreamByContentPath(r.Context(), nzbDoc, strings.Split(path, "::"), streamConfig)
 	if err != nil {

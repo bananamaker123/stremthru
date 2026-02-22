@@ -162,7 +162,11 @@ func (c *StoreClient) AddNewz(params *store.AddNewzParams) (*store.AddNewzData, 
 func flattenContentFiles(files []usenet_pool.NZBContentFile, parentPath string) []store.NewzFile {
 	var result []store.NewzFile
 	for _, f := range files {
-		filePath := "/" + f.Name
+		fileName := f.Name
+		if parentPath == "" && f.Alias != "" {
+			fileName = f.Alias
+		}
+		filePath := "/" + fileName
 		if parentPath != "" {
 			filePath = parentPath + "::" + filePath
 		}

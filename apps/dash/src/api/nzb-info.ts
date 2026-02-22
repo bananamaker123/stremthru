@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 export type NZBContentFile = {
+  alias?: string;
   errors?: string[];
   files?: NZBContentFile[];
   name: string;
@@ -10,6 +11,7 @@ export type NZBContentFile = {
   size: number;
   streamable: boolean;
   type: string;
+  volume?: number;
 };
 
 export type NZBInfoItem = {

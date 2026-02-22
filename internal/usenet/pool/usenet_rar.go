@@ -24,18 +24,23 @@ type RARArchive struct {
 	r        *rardecode.RarFS
 }
 
+func (ura *RARArchive) open() error {
+	if ura.r == nil {
+		opts := []rardecode.Option{rardecode.FileSystem(ura.fs), rardecode.SkipCheck}
+		if ura.password != "" {
+			opts = append(opts, rardecode.Password(ura.password))
+		}
+		r, err := rardecode.OpenFS(ura.name, opts...)
+		if err != nil {
+			return err
+		}
+		ura.r = r
+	}
+	return nil
+}
+
 func (ura *RARArchive) Open(password string) error {
 	ura.password = password
-
-	opts := []rardecode.Option{rardecode.FileSystem(ura.fs), rardecode.SkipCheck}
-	if password != "" {
-		opts = append(opts, rardecode.Password(password))
-	}
-	r, err := rardecode.OpenFS(ura.name, opts...)
-	if err != nil {
-		return err
-	}
-	ura.r = r
 	return nil
 }
 
@@ -94,7 +99,7 @@ func (ura *RARArchive) GetFiles() ([]ArchiveFile, error) {
 		for iter.Next() {
 			header := iter.Header()
 			file := &UsenetRARFile{
-				r:            ura.r,
+				a:            ura,
 				name:         header.Name,
 				packedSize:   header.PackedSize,
 				unPackedSize: header.UnPackedSize,
@@ -111,7 +116,7 @@ func (ura *RARArchive) GetFiles() ([]ArchiveFile, error) {
 }
 
 type UsenetRARFile struct {
-	r            *rardecode.RarFS
+	a            *RARArchive
 	name         string
 	unPackedSize int64
 	packedSize   int64
@@ -123,7 +128,10 @@ func (urf *UsenetRARFile) Name() string {
 }
 
 func (urf *UsenetRARFile) Open() (io.ReadSeekCloser, error) {
-	r, err := urf.r.Open(urf.name)
+	if err := urf.a.open(); err != nil {
+		return nil, err
+	}
+	r, err := urf.a.r.Open(urf.name)
 	if err != nil {
 		return nil, err
 	}

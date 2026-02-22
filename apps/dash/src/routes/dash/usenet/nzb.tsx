@@ -280,9 +280,8 @@ function ContentFileNode({
   const isPack = Boolean(
     file.type === "archive" && file.parts && file.parts.length > 0,
   );
-  const filePath = parentPath
-    ? parentPath + "::/" + file.name
-    : "/" + file.name;
+  const fileName = !parentPath && file.alias ? file.alias : file.name;
+  const filePath = parentPath ? parentPath + "::/" + fileName : "/" + fileName;
 
   return (
     <>
@@ -315,10 +314,18 @@ function ContentFileNode({
           <ItemTitle className="flex w-full justify-between">
             <Tooltip>
               <TooltipTrigger className="flex-1 truncate text-left">
-                <span>{file.name}</span>
+                <span>{file.alias || file.name}</span>
               </TooltipTrigger>
               <TooltipContent className="max-w-[400px] break-all">
-                {file.name}
+                <span>
+                  <span>{file.name}</span>
+                  {file.alias && (
+                    <>
+                      <br />
+                      <em>{`<${file.alias}>`}</em>
+                    </>
+                  )}
+                </span>
               </TooltipContent>
             </Tooltip>
             <Badge className="text-xs" variant="outline">
@@ -351,19 +358,14 @@ function ContentFileNode({
                 ))}
               </div>
               <div className="ml-auto">
-                {!hasChildren && (
-                  <Button
-                    disabled={!file.streamable}
-                    onClick={() =>
-                      window.open(
-                        `/dash/api/usenet/nzb/${nzbId}/download${filePath}`,
-                        "_blank",
-                      )
-                    }
-                    size="icon-sm"
-                    variant="ghost"
-                  >
-                    <Download className="size-3" />
+                {!isPack && file.streamable && (
+                  <Button asChild size="icon-sm" variant="ghost">
+                    <a
+                      href={`/dash/api/usenet/nzb/${nzbId}/download${filePath}`}
+                      target="_blank"
+                    >
+                      <Download className="size-3" />
+                    </a>
                   </Button>
                 )}
               </div>

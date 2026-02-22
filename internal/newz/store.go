@@ -308,7 +308,8 @@ func handleStoreNewzStreamFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	streamConfig := &usenet_pool.StreamConfig{
-		Password: nzbInfo.Password,
+		Password:     nzbInfo.Password,
+		ContentFiles: nzbInfo.ContentFiles.Data,
 	}
 	stream, err := pool.StreamByContentPath(r.Context(), nzbDoc, strings.Split(path, "::"), streamConfig)
 	if err != nil {

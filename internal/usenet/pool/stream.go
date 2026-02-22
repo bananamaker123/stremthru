@@ -20,6 +20,7 @@ var (
 type StreamConfig struct {
 	Password          string
 	SegmentBufferSize int64
+	ContentFiles      []NZBContentFile
 }
 
 type Stream struct {
@@ -99,6 +100,7 @@ func (p *Pool) streamPlainFile(
 	p.Log.Trace("creating stream", "stream_type", "plain", "filename", filename, "segment_count", file.SegmentCount())
 
 	stream, err := NewFileStream(
+		context.Background(),
 		p,
 		file,
 		config.SegmentBufferSize,
@@ -450,6 +452,33 @@ func (p *Pool) streamTargetFromArchive(
 	return nil, fmt.Errorf("no file matching '%s' found in archive", targetName)
 }
 
+func findFileByName(nzbDoc *nzb.NZB, contentFiles []NZBContentFile, name string) (*nzb.File, *NZBContentFile) {
+	var file *nzb.File
+	var contentFile *NZBContentFile
+
+	name = strings.Trim(name, "/")
+	lookupName := name
+	for i := range contentFiles {
+		cf := &contentFiles[i]
+		if strings.EqualFold(cf.Name, name) || strings.EqualFold(cf.Alias, name) {
+			contentFile = cf
+			lookupName = cf.Name
+			break
+		}
+	}
+
+	for i := range nzbDoc.Files {
+		if strings.EqualFold(nzbDoc.Files[i].Name(), lookupName) {
+			file = &nzbDoc.Files[i]
+			break
+		}
+	}
+	if file == nil {
+		return nil, nil
+	}
+	return file, contentFile
+}
+
 func (p *Pool) StreamByContentPath(
 	ctx context.Context,
 	nzbDoc *nzb.NZB,
@@ -464,33 +493,27 @@ func (p *Pool) StreamByContentPath(
 		config = &StreamConfig{}
 	}
 
-	if len(contentPath) == 1 {
-		filename := strings.Trim(contentPath[0], "/")
-		for i := range nzbDoc.Files {
-			if strings.EqualFold(nzbDoc.Files[i].Name(), filename) {
-				return p.streamPlainFile(&nzbDoc.Files[i], config)
-			}
-		}
-		return nil, fmt.Errorf("no file matching '%s' found", filename)
+	name := contentPath[0]
+	file, contentFile := findFileByName(nzbDoc, config.ContentFiles, name)
+	if file == nil {
+		return nil, fmt.Errorf("no file matching '%s' found", name)
 	}
 
-	archiveName := strings.Trim(contentPath[0], "/")
-	var archiveFile *nzb.File
-	for i := range nzbDoc.Files {
-		if strings.EqualFold(nzbDoc.Files[i].Name(), archiveName) {
-			archiveFile = &nzbDoc.Files[i]
-			break
-		}
+	if len(contentPath) == 1 {
+		return p.streamPlainFile(file, config)
 	}
-	if archiveFile == nil {
-		return nil, fmt.Errorf("no archive file matching '%s' found", archiveName)
+
+	archiveName := contentFile.Name
+	if contentFile.Alias != "" {
+		archiveName = contentFile.Alias
 	}
+	archiveFile := file
 
 	firstSegment, err := p.fetchFirstSegment(ctx, archiveFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch archive header: %w", err)
 	}
-	fileType := DetectFileType(firstSegment.Body, archiveFile.Name())
+	fileType := DetectFileType(firstSegment.Body, archiveName)
 
 	ufs := NewUsenetFS(ctx, &UsenetFSConfig{
 		NZB:               nzbDoc,
@@ -498,14 +521,25 @@ func (p *Pool) StreamByContentPath(
 		SegmentBufferSize: config.SegmentBufferSize,
 	})
 
+	var aliases map[string]string
+	for _, part := range contentFile.Parts {
+		if part.Alias != "" {
+			if aliases == nil {
+				aliases = make(map[string]string, len(contentFile.Parts))
+			}
+			aliases[part.Alias] = part.Name
+		}
+	}
+	ufs.SetAliases(aliases)
+
 	var archive Archive
 	switch fileType {
 	case FileTypeRAR:
-		archive = NewUsenetRARArchive(ufs)
+		archive = NewRARArchive(ufs, name)
 	case FileType7z:
-		archive = NewUsenetSevenZipArchive(ufs)
+		archive = NewSevenZipArchive(ufs.toAfero(), name)
 	default:
-		return nil, fmt.Errorf("file '%s' is not an archive", archiveName)
+		return nil, fmt.Errorf("file '%s' is not an archive", name)
 	}
 
 	if err := archive.Open(config.Password); err != nil {
@@ -554,7 +588,7 @@ func (p *Pool) StreamSegments(
 		return nil, err
 	}
 
-	stream, err := NewFileStream(p, f, conf.BufferSize)
+	stream, err := NewFileStream(ctx, p, f, conf.BufferSize)
 	if err != nil {
 		return nil, err
 	}

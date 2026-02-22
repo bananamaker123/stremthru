@@ -3,6 +3,7 @@ package usenet_pool
 import (
 	"context"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -15,6 +16,7 @@ import (
 
 var (
 	_ fs.FS       = (*UsenetFS)(nil)
+	_ io.Closer   = (*UsenetFS)(nil)
 	_ fs.File     = (*UsenetFile)(nil)
 	_ fs.FileInfo = (*UsenetFileInfo)(nil)
 	_ afero.Fs    = (*UsenetFSAfero)(nil)
@@ -35,10 +37,25 @@ func (ufi *UsenetFileInfo) Sys() any           { return nil }
 
 type UsenetFS struct {
 	ctx               context.Context
+	cancel            context.CancelFunc
 	pool              *Pool
 	nzb               *nzb.NZB
 	files             map[string]UsenetFileInfo
+	aliases           map[string]string // alias name → real filename
 	segmentBufferSize int64
+}
+
+func (ufs *UsenetFS) SetAliases(aliases map[string]string) {
+	ufs.aliases = aliases
+}
+
+func (ufs *UsenetFS) resolveFilename(name string) string {
+	if _, ok := ufs.files[name]; !ok && ufs.aliases != nil {
+		if fname, ok := ufs.aliases[name]; ok {
+			return fname
+		}
+	}
+	return name
 }
 
 type UsenetFSConfig struct {
@@ -48,8 +65,10 @@ type UsenetFSConfig struct {
 }
 
 func NewUsenetFS(ctx context.Context, conf *UsenetFSConfig) *UsenetFS {
+	ctx, cancel := context.WithCancel(ctx)
 	usenetFs := &UsenetFS{
 		ctx:               ctx,
+		cancel:            cancel,
 		pool:              conf.Pool,
 		nzb:               conf.NZB,
 		files:             make(map[string]UsenetFileInfo, conf.NZB.FileCount()),
@@ -67,7 +86,7 @@ func NewUsenetFS(ctx context.Context, conf *UsenetFSConfig) *UsenetFS {
 func (ufs *UsenetFS) Open(name string) (fs.File, error) {
 	name = path.Clean(name)
 
-	fi, ok := ufs.files[name]
+	fi, ok := ufs.files[ufs.resolveFilename(name)]
 	if !ok {
 		return nil, &fs.PathError{
 			Op:   "open",
@@ -76,7 +95,7 @@ func (ufs *UsenetFS) Open(name string) (fs.File, error) {
 		}
 	}
 
-	stream, err := NewFileStream(ufs.pool, fi.f, ufs.segmentBufferSize)
+	stream, err := NewFileStream(ufs.ctx, ufs.pool, fi.f, ufs.segmentBufferSize)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +111,7 @@ func (ufs *UsenetFS) Open(name string) (fs.File, error) {
 func (ufs *UsenetFS) Stat(name string) (os.FileInfo, error) {
 	name = path.Clean(name)
 
-	fi, ok := ufs.files[name]
+	fi, ok := ufs.files[ufs.resolveFilename(name)]
 	if !ok {
 		return nil, &fs.PathError{
 			Op:   "stat",
@@ -108,6 +127,11 @@ func (ufs *UsenetFS) Stat(name string) (os.FileInfo, error) {
 	fi.size = firstSegment.FileSize
 
 	return &fi, nil
+}
+
+func (ufs *UsenetFS) Close() error {
+	ufs.cancel()
+	return nil
 }
 
 func (ufs *UsenetFS) toAfero() *UsenetFSAfero {
