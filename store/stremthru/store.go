@@ -265,6 +265,7 @@ func (c *StoreClient) GetNewz(params *store.GetNewzParams) (*store.GetNewzData, 
 			Name:    info.Name,
 			Size:    info.Size,
 			Status:  store.NewzStatusUnknown,
+			Files:   []store.NewzFile{},
 			AddedAt: info.UAt.Time,
 		}
 		if info.Streamable {
@@ -275,6 +276,8 @@ func (c *StoreClient) GetNewz(params *store.GetNewzParams) (*store.GetNewzData, 
 				file.Link = LockedFileLink("").Create(info.Hash, file.Path)
 			}
 			data.Files = files
+		} else {
+			data.Status = store.NewzStatusFailed
 		}
 		return data, nil
 	}
@@ -317,17 +320,18 @@ func (c *StoreClient) ListNewz(params *store.ListNewzParams) (*store.ListNewzDat
 	items := []store.ListNewzDataItem{}
 	for _, info := range allInfos {
 		seen[info.Hash] = struct{}{}
-		if !info.Streamable {
-			continue
-		}
-		items = append(items, store.ListNewzDataItem{
+		item := store.ListNewzDataItem{
 			Id:      info.Hash,
 			Hash:    info.Hash,
 			Name:    info.Name,
 			Size:    info.Size,
 			Status:  store.NewzStatusDownloaded,
 			AddedAt: info.CAt.Time,
-		})
+		}
+		if !info.Streamable {
+			item.Status = store.NewzStatusFailed
+		}
+		items = append(items, item)
 	}
 
 	jobs, err := nzb_info.GetAllJob()
