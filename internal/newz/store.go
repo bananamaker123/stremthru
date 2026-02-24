@@ -311,7 +311,7 @@ func handleStoreNewzStreamFile(w http.ResponseWriter, r *http.Request) {
 		Password:     nzbInfo.Password,
 		ContentFiles: nzbInfo.ContentFiles.Data,
 	}
-	stream, err := pool.StreamByContentPath(r.Context(), nzbDoc, strings.Split(path, "::"), streamConfig)
+	stream, err := pool.StreamByContentPath(r.Context(), nzbDoc, path, streamConfig)
 	if err != nil {
 		server.SendError(w, r, err)
 		return

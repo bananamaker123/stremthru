@@ -50,7 +50,7 @@ type stremResult struct {
 var usenetStremGroup singleflight.Group
 
 type usenetStremResult struct {
-	contentPath  []string
+	contentPath  string
 	streamConfig *usenet_pool.StreamConfig
 	nzbDoc       *nzb.NZB
 	nzbFileMod   time.Time
@@ -395,13 +395,8 @@ func handleStreamFromUsenet(w http.ResponseWriter, r *http.Request, ud *UserData
 			}, err
 		}
 
-		contentPath := strings.Split(strings.Trim(file.GetPath(), "/"), "::")
-		for i := range contentPath {
-			contentPath[i] = strings.TrimPrefix(contentPath[i], "/")
-		}
-
 		return &usenetStremResult{
-			contentPath: contentPath,
+			contentPath: file.GetPath(),
 			streamConfig: &usenet_pool.StreamConfig{
 				Password:     info.Password,
 				ContentFiles: info.ContentFiles.Data,

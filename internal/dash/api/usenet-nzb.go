@@ -449,7 +449,7 @@ func handleStreamNZBFile(w http.ResponseWriter, r *http.Request) {
 		Password:     info.Password,
 		ContentFiles: info.ContentFiles.Data,
 	}
-	stream, err := pool.StreamByContentPath(r.Context(), nzbDoc, strings.Split(path, "::"), streamConfig)
+	stream, err := pool.StreamByContentPath(r.Context(), nzbDoc, path, streamConfig)
 	if err != nil {
 		SendError(w, r, err)
 		return

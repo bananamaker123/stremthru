@@ -456,7 +456,6 @@ func findFileByName(nzbDoc *nzb.NZB, contentFiles []NZBContentFile, name string)
 	var file *nzb.File
 	var contentFile *NZBContentFile
 
-	name = strings.Trim(name, "/")
 	lookupName := name
 	for i := range contentFiles {
 		cf := &contentFiles[i]
@@ -482,24 +481,29 @@ func findFileByName(nzbDoc *nzb.NZB, contentFiles []NZBContentFile, name string)
 func (p *Pool) StreamByContentPath(
 	ctx context.Context,
 	nzbDoc *nzb.NZB,
-	contentPath []string,
+	contentPath string,
 	config *StreamConfig,
 ) (*Stream, error) {
-	if len(contentPath) == 0 || contentPath[0] == "" {
-		return nil, fmt.Errorf("invalid content path: %s", strings.Join(contentPath, "::"))
+	pathParts := strings.Split(strings.Trim(contentPath, "/"), "::")
+	for i := range pathParts {
+		pathParts[i] = strings.TrimPrefix(pathParts[i], "/")
+	}
+
+	if len(pathParts) == 0 || pathParts[0] == "" {
+		return nil, fmt.Errorf("invalid content path: %s", strings.Join(pathParts, "::"))
 	}
 
 	if config == nil {
 		config = &StreamConfig{}
 	}
 
-	name := contentPath[0]
+	name := pathParts[0]
 	file, contentFile := findFileByName(nzbDoc, config.ContentFiles, name)
 	if file == nil {
 		return nil, fmt.Errorf("no file matching '%s' found", name)
 	}
 
-	if len(contentPath) == 1 {
+	if len(pathParts) == 1 {
 		return p.streamPlainFile(file, config)
 	}
 
@@ -551,7 +555,7 @@ func (p *Pool) StreamByContentPath(
 		return nil, fmt.Errorf("non-streamable %s archive", fileType)
 	}
 
-	stream, err := p.streamTargetFromArchive(archive, contentPath[1:], fileType)
+	stream, err := p.streamTargetFromArchive(archive, pathParts[1:], fileType)
 	if err != nil {
 		archive.Close()
 		return nil, err
