@@ -25,7 +25,7 @@ type NZBFile struct {
 	Mod  time.Time
 }
 
-func (b *NZBFile) CacheSize() int64 {
+func (b NZBFile) CacheSize() int64 {
 	return int64(len(b.Blob))
 }
 

@@ -115,18 +115,21 @@ func (c *diskBackedCache[V]) AddWithLifetime(key string, value V, lifetime time.
 		return err
 	}
 
-	if err := os.WriteFile(c.getFilePath(key), buf.Bytes(), 0644); err != nil {
-		return err
-	}
-
 	size := int64(1)
 	if sizer, ok := any(value).(cacheSizer); ok {
+		size = sizer.CacheSize()
+	} else if sizer, ok := any(&value).(cacheSizer); ok {
 		size = sizer.CacheSize()
 	}
 	c.otter.Set(key, diskBackedCacheMeta{Size: size})
 	if lifetime > 0 {
 		c.otter.SetExpiresAfter(key, lifetime)
 	}
+
+	if err := os.WriteFile(c.getFilePath(key), buf.Bytes(), 0644); err != nil {
+		return err
+	}
+
 	return nil
 }
 

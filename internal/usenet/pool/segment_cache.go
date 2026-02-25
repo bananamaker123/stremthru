@@ -13,7 +13,7 @@ type SegmentData struct {
 	Size      int64
 }
 
-func (sd *SegmentData) CacheSize() int64 {
+func (sd SegmentData) CacheSize() int64 {
 	return sd.Size
 }
 
