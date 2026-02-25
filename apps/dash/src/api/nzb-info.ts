@@ -17,6 +17,7 @@ export type NZBContentFile = {
 export type NZBInfoItem = {
   cached: boolean;
   created_at: string;
+  date: string;
   file_count: number;
   files: null | NZBContentFile[];
   hash: string;
@@ -24,6 +25,7 @@ export type NZBInfoItem = {
   name: string;
   password: string;
   size: number;
+  status: string;
   streamable: boolean;
   updated_at: string;
   url: string;

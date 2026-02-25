@@ -203,6 +203,9 @@ func flattenContentFiles(files []usenet_pool.NZBContentFile, parentPath string) 
 }
 
 func calculateNewzStatus(job_status string, info *nzb_info.NZBInfo) store.NewzStatus {
+	if info != nil && info.Status != "" {
+		return store.NewzStatus(info.Status)
+	}
 	switch job_queue.EntryStatus(job_status) {
 	case job_queue.EntryStatusQueued:
 		return store.NewzStatusQueued

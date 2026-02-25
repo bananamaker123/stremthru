@@ -48,10 +48,11 @@ function age(dateString: string): null | string {
   return DateTime.fromISO(dateString)
     .diffNow()
     .negate()
-    .shiftTo("years", "months", "days", "hours")
+    .shiftTo("years", "months", "days")
     .removeZeros()
     .toHuman({
       maximumFractionDigits: 0,
+      showZeros: false,
       unitDisplay: "short",
     });
 }

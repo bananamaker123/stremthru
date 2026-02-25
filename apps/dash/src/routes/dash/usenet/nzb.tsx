@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { DateTime } from "luxon";
 import prettyBytes from "pretty-bytes";
-import { useState } from "react";
+import { ComponentProps, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -75,6 +75,43 @@ declare module "@/components/data-table" {
   }
 }
 
+function age(dateString: string): null | string {
+  return DateTime.fromISO(dateString)
+    .diffNow()
+    .negate()
+    .shiftTo("years", "months", "days")
+    .removeZeros()
+    .toHuman({
+      maximumFractionDigits: 0,
+      showZeros: false,
+      unitDisplay: "short",
+    });
+}
+
+function StatusBadge({ status }: { status: string }) {
+  let text = status;
+  let variant: ComponentProps<typeof Badge>["variant"] = "outline";
+  switch (status) {
+    case "downloaded":
+      text = "Downloaded";
+      variant = "default";
+      break;
+    case "downloading":
+      text = "Downloading";
+      variant = "default";
+      break;
+    case "failed":
+      text = "Failed";
+      variant = "destructive";
+      break;
+    case "queued":
+      text = "Queued";
+      variant = "default";
+      break;
+  }
+  return <Badge variant={variant}>{text}</Badge>;
+}
+
 const col = createColumnHelper<NZBInfoItem>();
 
 const columns: ColumnDef<NZBInfoItem>[] = [
@@ -123,6 +160,29 @@ const columns: ColumnDef<NZBInfoItem>[] = [
         <Badge variant="destructive">No</Badge>
       ),
     header: "Cached",
+  }),
+  col.accessor("status", {
+    cell: ({ getValue }) => {
+      const status = getValue();
+      if (!status) return <span className="text-muted-foreground">-</span>;
+      return <StatusBadge status={status} />;
+    },
+    header: "Status",
+  }),
+  col.accessor("date", {
+    cell: ({ getValue }) => {
+      const date = getValue();
+      if (!date) return <span className="text-muted-foreground">-</span>;
+      return (
+        <Tooltip>
+          <TooltipTrigger>{age(date)}</TooltipTrigger>
+          <TooltipContent>
+            {DateTime.fromISO(date).toLocaleString(DateTime.DATETIME_MED)}
+          </TooltipContent>
+        </Tooltip>
+      );
+    },
+    header: "Age",
   }),
   col.accessor("created_at", {
     cell: ({ getValue }) => {
@@ -485,6 +545,33 @@ function NzbInfoDetailDialog({
               <div>
                 <div className="text-muted-foreground font-medium">User</div>
                 <div className="mt-1">{item.user}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground font-medium">Status</div>
+                <div className="mt-1">
+                  {item.status ? (
+                    <StatusBadge status={item.status} />
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-muted-foreground font-medium">Age</div>
+                <div className="mt-1">
+                  {item.date ? (
+                    <Tooltip>
+                      <TooltipTrigger>{age(item.date)}</TooltipTrigger>
+                      <TooltipContent>
+                        {DateTime.fromISO(item.date).toLocaleString(
+                          DateTime.DATETIME_MED,
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </div>
               </div>
               {item.url && (
                 <div className="col-span-2">

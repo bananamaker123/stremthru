@@ -14,7 +14,6 @@ import (
 	"github.com/MunifTanjim/stremthru/internal/usenet/nzb_info"
 	usenet_pool "github.com/MunifTanjim/stremthru/internal/usenet/pool"
 	"github.com/MunifTanjim/stremthru/internal/util"
-	"github.com/rs/xid"
 )
 
 type NzbSegmentResponse struct {
@@ -146,6 +145,8 @@ type NZBResponse struct {
 	Streamable bool                     `json:"streamable"`
 	Cached     bool                     `json:"cached"`
 	User       string                   `json:"user"`
+	Date       string                   `json:"date"`
+	Status     string                   `json:"status"`
 	CreatedAt  string                   `json:"created_at"`
 	UpdatedAt  string                   `json:"updated_at"`
 }
@@ -183,6 +184,10 @@ func toNZBResponse(info *nzb_info.NZBInfo) NZBResponse {
 			contentFiles[i] = toNZBContentFileResponse(f)
 		}
 	}
+	var date string
+	if !info.Date.IsZero() {
+		date = info.Date.Format(time.RFC3339)
+	}
 	return NZBResponse{
 		Id:         info.Id,
 		Hash:       info.Hash,
@@ -195,6 +200,8 @@ func toNZBResponse(info *nzb_info.NZBInfo) NZBResponse {
 		Streamable: info.Streamable,
 		Cached:     nzb_info.IsNZBFileCached(info.Hash),
 		User:       info.User,
+		Date:       date,
+		Status:     info.Status,
 		CreatedAt:  info.CAt.Format(time.RFC3339),
 		UpdatedAt:  info.UAt.Format(time.RFC3339),
 	}
@@ -315,7 +322,7 @@ func handleUploadNZB(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nzbId := xid.New().String()
+	nzbId := nzbDoc.HashByFileBoundarySegmentIds()
 	link := config.BaseURL.JoinPath("/v0/newznab/getnzb/", nzbId)
 	linkQuery := link.Query()
 	apikey := util.Base64Encode(ctx.Session.User + ":" + config.Auth.GetPassword(ctx.Session.User))
@@ -354,6 +361,7 @@ func handleUploadNZB(w http.ResponseWriter, r *http.Request) {
 		Password:  "",
 		URL:       nzbFile.Link,
 		User:      ctx.Session.User,
+		Status:    "queued",
 	}); err != nil {
 		SendError(w, r, err)
 		return

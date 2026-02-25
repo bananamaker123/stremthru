@@ -2,11 +2,14 @@ package nzb_info
 
 import (
 	"context"
+	"time"
 
+	"github.com/MunifTanjim/stremthru/internal/db"
 	"github.com/MunifTanjim/stremthru/internal/job"
 	"github.com/MunifTanjim/stremthru/internal/logger"
 	usenetmanager "github.com/MunifTanjim/stremthru/internal/usenet/manager"
 	"github.com/MunifTanjim/stremthru/internal/usenet/nzb"
+	"github.com/MunifTanjim/stremthru/store"
 )
 
 const schedulerId = "process-nzb"
@@ -45,6 +48,16 @@ var scheduler = job.NewScheduler(&job.SchedulerConfig[JobData]{
 				password = data.Password
 			}
 
+			var nzbDate time.Time
+			for _, f := range nzbDoc.Files {
+				if f.Date > 0 {
+					t := time.Unix(f.Date, 0)
+					if nzbDate.IsZero() || t.Before(nzbDate) {
+						nzbDate = t
+					}
+				}
+			}
+
 			info := &NZBInfo{
 				Hash:      hash,
 				Name:      name,
@@ -53,6 +66,12 @@ var scheduler = job.NewScheduler(&job.SchedulerConfig[JobData]{
 				Password:  password,
 				URL:       data.URL,
 				User:      data.User,
+				Date:      db.Timestamp{Time: nzbDate},
+				Status:    string(store.NewzStatusDownloading),
+			}
+
+			if err := Upsert(info); err != nil {
+				return err
 			}
 
 			pool, err := usenetmanager.GetPool()
@@ -62,10 +81,16 @@ var scheduler = job.NewScheduler(&job.SchedulerConfig[JobData]{
 			content, err := pool.InspectNZBContent(context.Background(), nzbDoc, password)
 			if err != nil {
 				log.Warn("failed to inspect nzb content", "error", err)
+				UpdateStatus(hash, string(store.NewzStatusFailed))
 				return err
 			}
 			info.ContentFiles.Data = content.Files
 			info.Streamable = content.Streamable
+			if content.Streamable {
+				info.Status = string(store.NewzStatusDownloaded)
+			} else {
+				info.Status = string(store.NewzStatusFailed)
+			}
 
 			return Upsert(info)
 		})

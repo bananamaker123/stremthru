@@ -2,6 +2,8 @@ package nzb
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/xml"
 	"io"
 	"slices"
@@ -177,4 +179,18 @@ func (f *File) MessageIds() []string {
 
 func (f *File) SegmentCount() int {
 	return len(f.Segments)
+}
+
+func (n *NZB) HashByFileBoundarySegmentIds() string {
+	h := md5.New()
+	for i := range n.Files {
+		segments := n.Files[i].Segments
+		if len(segments) > 0 {
+			io.WriteString(h, strings.TrimSpace(segments[0].MessageId))
+			if last := len(segments) - 1; last > 0 {
+				io.WriteString(h, strings.TrimSpace(segments[last].MessageId))
+			}
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }

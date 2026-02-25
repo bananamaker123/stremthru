@@ -23,6 +23,8 @@ var Column = struct {
 	Files      string
 	Streamable string
 	User       string
+	Date       string
+	Status     string
 	CAt        string
 	UAt        string
 }{
@@ -36,6 +38,8 @@ var Column = struct {
 	Files:      "files",
 	Streamable: "streamable",
 	User:       "user",
+	Date:       "date",
+	Status:     "status",
 	CAt:        "cat",
 	UAt:        "uat",
 }
@@ -51,6 +55,8 @@ var columns = []string{
 	Column.Files,
 	Column.Streamable,
 	Column.User,
+	Column.Date,
+	Column.Status,
 	Column.CAt,
 	Column.UAt,
 }
@@ -66,14 +72,16 @@ type NZBInfo struct {
 	ContentFiles db.JSONB[[]usenet_pool.NZBContentFile]
 	Streamable   bool
 	User         string
+	Date         db.Timestamp
+	Status       string
 	CAt          db.Timestamp
 	UAt          db.Timestamp
 }
 
 var query_upsert = fmt.Sprintf(
-	`INSERT INTO %s (%s) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (%s) DO UPDATE SET %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = %s`,
+	`INSERT INTO %s (%s) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (%s) DO UPDATE SET %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = %s`,
 	TableName,
-	strings.Join([]string{Column.Id, Column.Hash, Column.Name, Column.Size, Column.FileCount, Column.Password, Column.URL, Column.Files, Column.Streamable, Column.User}, ", "),
+	strings.Join([]string{Column.Id, Column.Hash, Column.Name, Column.Size, Column.FileCount, Column.Password, Column.URL, Column.Files, Column.Streamable, Column.User, Column.Date, Column.Status}, ", "),
 	Column.Hash,
 	Column.Name, Column.Name,
 	Column.Size, Column.Size,
@@ -82,6 +90,8 @@ var query_upsert = fmt.Sprintf(
 	Column.URL, Column.URL,
 	Column.Files, Column.Files,
 	Column.Streamable, Column.Streamable,
+	Column.Date, Column.Date,
+	Column.Status, Column.Status,
 	Column.UAt, db.CurrentTimestamp,
 )
 
@@ -100,7 +110,22 @@ func Upsert(info *NZBInfo) error {
 		info.ContentFiles,
 		info.Streamable,
 		info.User,
+		info.Date,
+		info.Status,
 	)
+	return err
+}
+
+var query_update_status = fmt.Sprintf(
+	`UPDATE %s SET %s = ?, %s = %s WHERE %s = ?`,
+	TableName,
+	Column.Status,
+	Column.UAt, db.CurrentTimestamp,
+	Column.Hash,
+)
+
+func UpdateStatus(hash string, status string) error {
+	_, err := db.Exec(query_update_status, status, hash)
 	return err
 }
 
@@ -114,7 +139,7 @@ var query_get_by_id = fmt.Sprintf(
 func GetById(id string) (*NZBInfo, error) {
 	row := db.QueryRow(query_get_by_id, id)
 	info := NZBInfo{}
-	if err := row.Scan(&info.Id, &info.Hash, &info.Name, &info.Size, &info.FileCount, &info.Password, &info.URL, &info.ContentFiles, &info.Streamable, &info.User, &info.CAt, &info.UAt); err != nil {
+	if err := row.Scan(&info.Id, &info.Hash, &info.Name, &info.Size, &info.FileCount, &info.Password, &info.URL, &info.ContentFiles, &info.Streamable, &info.User, &info.Date, &info.Status, &info.CAt, &info.UAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -133,7 +158,7 @@ var query_get_by_hash = fmt.Sprintf(
 func GetByHash(hash string) (*NZBInfo, error) {
 	row := db.QueryRow(query_get_by_hash, hash)
 	info := NZBInfo{}
-	if err := row.Scan(&info.Id, &info.Hash, &info.Name, &info.Size, &info.FileCount, &info.Password, &info.URL, &info.ContentFiles, &info.Streamable, &info.User, &info.CAt, &info.UAt); err != nil {
+	if err := row.Scan(&info.Id, &info.Hash, &info.Name, &info.Size, &info.FileCount, &info.Password, &info.URL, &info.ContentFiles, &info.Streamable, &info.User, &info.Date, &info.Status, &info.CAt, &info.UAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -159,7 +184,7 @@ func GetAll() ([]NZBInfo, error) {
 	infos := []NZBInfo{}
 	for rows.Next() {
 		info := NZBInfo{}
-		if err := rows.Scan(&info.Id, &info.Hash, &info.Name, &info.Size, &info.FileCount, &info.Password, &info.URL, &info.ContentFiles, &info.Streamable, &info.User, &info.CAt, &info.UAt); err != nil {
+		if err := rows.Scan(&info.Id, &info.Hash, &info.Name, &info.Size, &info.FileCount, &info.Password, &info.URL, &info.ContentFiles, &info.Streamable, &info.User, &info.Date, &info.Status, &info.CAt, &info.UAt); err != nil {
 			return nil, err
 		}
 		infos = append(infos, info)
