@@ -154,6 +154,11 @@ func handleStream(w http.ResponseWriter, r *http.Request) {
 		}
 		meta = &mres.Meta
 
+		if meta.Name == "" {
+			SendResponse(w, r, 200, res)
+			return
+		}
+
 		var wg sync.WaitGroup
 
 		idPrefixes := ud.getIdPrefixes()
