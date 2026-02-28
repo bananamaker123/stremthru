@@ -35,8 +35,9 @@ EXPOSE 8080
 # Ensure data directory exists
 RUN mkdir -p /app/data
 
-# Set it as a volume (optional, for persistence)
-VOLUME ["/app/data"]
+# Ensure data directory exists
+RUN mkdir -p /app/data && chmod 755 /app/data
 
 CMD ["./stremthru"]
+
 
