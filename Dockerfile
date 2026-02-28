@@ -22,7 +22,7 @@ COPY store ./store
 COPY stremio ./stremio
 COPY *.go ./
 
-COPY apps/dash/.output/public/ ./internal/dash/fs/
+
 
 ENV CGO_ENABLED=1
 ENV XX_GO_PREFER_C_COMPILER=zig
