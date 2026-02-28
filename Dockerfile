@@ -31,4 +31,12 @@ COPY --from=builder /app/stremthru .
 
 # Expose port and set default command
 EXPOSE 8080
+
+# Ensure data directory exists
+RUN mkdir -p /app/data
+
+# Set it as a volume (optional, for persistence)
+VOLUME ["/app/data"]
+
 CMD ["./stremthru"]
+
