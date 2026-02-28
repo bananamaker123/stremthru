@@ -1,6 +1,6 @@
 # === Build stage ===
 # Use a small official Go image
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Install anything Go needs to compile
 RUN apk add --no-cache git build-base
