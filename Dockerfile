@@ -16,7 +16,7 @@ RUN go mod download
 COPY . .
 
 # Build the binary (no cross‑compile needed)
-RUN go build -o stremthru ./cmd/stremthru
+RUN go build -o stremthru .
 
 # === Runtime stage ===
 FROM alpine:latest
