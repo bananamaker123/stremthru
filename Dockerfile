@@ -1,46 +1,34 @@
-FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
+# === Build stage ===
+# Use a small official Go image
+FROM golang:1.21-alpine AS builder
 
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
+# Install anything Go needs to compile
+RUN apk add --no-cache git build-base
 
-RUN apk add zig
+# Set working directory
+WORKDIR /app
 
-COPY --from=xx / /
-
-ARG TARGETOS TARGETARCH TARGETPLATFORM
-
-RUN xx-apk add musl-dev
-
-WORKDIR /workspace
-
+# Copy module files and download dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY migrations ./migrations
-COPY core ./core
-COPY internal ./internal
-COPY store ./store
-COPY stremio ./stremio
-COPY *.go ./
+# Copy the rest of the source code
+COPY . .
 
+# Build the binary (no cross‑compile needed)
+RUN go build -o stremthru ./cmd/stremthru
 
+# === Runtime stage ===
+FROM alpine:latest
 
-ENV CGO_ENABLED=1
-ENV XX_GO_PREFER_C_COMPILER=zig
-RUN xx-go build --tags 'fts5' -ldflags='-s -w -linkmode external -extldflags "-static"' -o stremthru
-RUN xx-verify --static stremthru
-
-FROM alpine
-
+# Install runtime tools
 RUN apk add --no-cache git ffmpeg
 
 WORKDIR /app
 
-COPY --from=builder /workspace/stremthru ./stremthru
+# Copy compiled binary from the builder stage
+COPY --from=builder /app/stremthru .
 
-VOLUME ["/app/data"]
-
-ENV STREMTHRU_ENV=prod
-
+# Expose port and set default command
 EXPOSE 8080
-
-ENTRYPOINT ["./stremthru"]
+CMD ["./stremthru"]
